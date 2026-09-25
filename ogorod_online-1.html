@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Огород Онлайн</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:system-ui,Arial;background:#72c95a;color:#fff}
+body{display:flex;align-items:center;justify-content:center}
+#game{position:relative;width:100vw;height:100vh;max-width:1280px;max-height:720px;overflow:hidden;background:linear-gradient(#72cf62 0 18%,#55ad48 18% 100%)}
+.top{height:18%;background:#4a9f42;display:flex;align-items:center;justify-content:space-between;padding:10px 18px;gap:10px}
+.title{font-size:clamp(20px,3vw,36px);font-weight:900;text-shadow:2px 3px #327033}
+.stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.pill{background:#286b31;border:2px solid #8ee47d;border-radius:14px;padding:6px 11px;font-weight:800}
+button{border:0;border-radius:12px;padding:9px 13px;font-weight:900;color:#173d1b;background:#b8f59f;cursor:pointer;box-shadow:0 3px #3f8639}
+button:active{transform:translateY(2px);box-shadow:0 1px #3f8639}
+#world{position:absolute;left:0;right:0;top:18%;bottom:0;padding:16px;display:grid;grid-template-columns:1fr 230px;gap:15px}
+#field{background:#67bd53;border:5px solid #3c8e3c;border-radius:18px;padding:16px;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(3,1fr);gap:10px;min-width:0}
+.plot{position:relative;border:3px solid #895d35;border-radius:13px;background:#9a673a;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;box-shadow:inset 0 7px #b37a46}
+.plot:hover{filter:brightness(1.08)}.plot.locked{opacity:.45;cursor:default}.plant{font-size:clamp(28px,5vw,58px);filter:drop-shadow(0 3px 0 #684323)}
+.timer{position:absolute;bottom:4px;background:#263b24dd;border-radius:8px;padding:2px 7px;font-size:11px;font-weight:800}
+.ready{background:#d8ff65;color:#27431b}.player{position:absolute;font-size:36px;transition:.15s;z-index:4;pointer-events:none}
+#panel{background:#3f873d;border:4px solid #2d6830;border-radius:18px;padding:14px;overflow:auto}
+h2{margin:0 0 8px;font-size:22px}.seed{display:flex;align-items:center;justify-content:space-between;background:#317331;margin:8px 0;padding:9px;border-radius:12px}
+.seed b{font-size:24px}.small{font-size:12px;opacity:.85;line-height:1.35}
+#log{margin-top:10px;background:#24592a;border-radius:12px;padding:8px;font-size:12px;min-height:70px;max-height:130px;overflow:auto}
+#lobby{position:absolute;inset:0;background:#245d2c;display:flex;align-items:center;justify-content:center;z-index:20;padding:20px}
+.card{width:min(520px,95vw);background:#4b9b45;border:4px solid #8be078;border-radius:22px;padding:22px;text-align:center;box-shadow:0 10px 30px #17351dcc}
+.card h1{font-size:42px;margin:5px 0 4px}.card p{opacity:.9}
+input{width:100%;padding:13px;border-radius:12px;border:2px solid #79cf69;font-size:18px;margin:7px 0;background:#eaffdf}
+.room{font-size:30px;letter-spacing:4px;background:#285f2d;padding:10px;border-radius:12px;margin:10px 0}
+.hidden{display:none!important}
+#toast{position:absolute;left:50%;top:20%;transform:translateX(-50%);background:#193f20eF;padding:10px 15px;border-radius:12px;font-weight:900;z-index:10;pointer-events:none}
+@media(max-width:750px){#world{grid-template-columns:1fr 145px;padding:8px;gap:7px}#field{padding:7px;gap:5px}.top{padding:7px}.title{font-size:20px}.pill{font-size:12px;padding:5px}.seed{font-size:12px}.seed b{font-size:20px}button{padding:7px 9px}}
+</style>
+</head>
+<body>
+<div id="game">
+<div id="lobby">
+ <div class="card">
+  <h1>🌱 Огород Онлайн</h1>
+  <p>Сажай растения, собирай урожай и играй вместе с другом.</p>
+  <input id="name" maxlength="14" placeholder="Твоё имя" value="Фермер">
+  <button id="create">Создать комнату</button>
+  <div style="margin:12px 0;opacity:.7">или</div>
+  <input id="joinCode" maxlength="8" placeholder="Код комнаты">
+  <button id="join">Войти к другу</button>
+  <p class="small">Онлайн работает через P2P-соединение. Для игры с другом один создаёт комнату и отправляет ему код.</p>
+ </div>
+</div>
+
+<div class="top">
+ <div class="title">🌻 Огород Онлайн</div>
+ <div class="stats">
+  <div class="pill">🪙 <span id="coins">100</span></div>
+  <div class="pill">🏆 Урожай: <span id="harvest">0</span></div>
+  <div class="pill">👥 <span id="online">1</span></div>
+ </div>
+ <button id="leave">Выйти</button>
+</div>
+
+<div id="world">
+ <div id="field"></div>
+ <div id="panel">
+  <h2>🌱 Семена</h2>
+  <div id="seeds"></div>
+  <div class="small">Выбери семя, затем нажми на свободную грядку. Когда растение созреет — нажми на него, чтобы собрать.</div>
+  <div id="roomBox" class="small"></div>
+  <div id="log"></div>
+ </div>
+</div>
+<div id="toast" class="hidden"></div>
+</div>
+
+<script>
+const crops={
+ carrot:{name:"Морковь",icon:"🥕",cost:5,sell:12,time:5000},
+ tomato:{name:"Помидор",icon:"🍅",cost:8,sell:20,time:8000},
+ corn:{name:"Кукуруза",icon:"🌽",cost:12,sell:30,time:11000},
+ pumpkin:{name:"Тыква",icon:"🎃",cost:20,sell:55,time:15000}
+};
+let state={coins:100,harvest:0,plots:Array(15).fill(null),players:{}};
+let selected="carrot", peer=null, conn=null, host=false, myId="", myName="Фермер", roomId="";
+
+const $=id=>document.getElementById(id);
+function log(t){$("log").innerHTML=`<div>${t}</div>`+$("log").innerHTML}
+function toast(t){$("toast").textContent=t;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),1600)}
+function renderSeeds(){
+ $("seeds").innerHTML=Object.entries(crops).map(([id,c])=>`
+ <div class="seed" style="${selected===id?'outline:3px solid #eaff66':''}">
+  <span><b>${c.icon}</b> ${c.name}<br><span class="small">Цена ${c.cost} • Урожай ${c.sell}</span></span>
+  <button onclick="selectCrop('${id}')">Выбрать</button>
+ </div>`).join("");
+}
+function selectCrop(id){selected=id;renderSeeds()}
+function render(){
+ $("coins").textContent=state.coins;$("harvest").textContent=state.harvest;
+ $("online").textContent=1+Object.keys(state.players).length;
+ $("field").innerHTML=state.plots.map((p,i)=>{
+   if(!p)return `<div class="plot" onclick="plant(${i})">＋</div>`;
+   let c=crops[p.type], ready=Date.now()>=p.readyAt;
+   let left=Math.max(0,Math.ceil((p.readyAt-Date.now())/1000));
+   return `<div class="plot ${ready?'ready':''}" onclick="interact(${i})"><div class="plant">${ready?c.icon:"🌱"}</div><div class="timer">${ready?"СОБИРАТЬ":left+" сек."}</div></div>`
+ }).join("");
+ for(const [id,p] of Object.entries(state.players)){
+   // players are represented by small markers on random garden positions
+ }
+}
+function plant(i){
+ if(state.plots[i])return;
+ let c=crops[selected];
+ if(state.coins<c.cost){toast("Не хватает монет!");return}
+ state.coins-=c.cost;
+ state.plots[i]={type:selected,readyAt:Date.now()+c.time,owner:myId};
+ render(); broadcast({type:"state",state});
+ log(`Посажено: ${c.icon} ${c.name}`);
+}
+function interact(i){
+ let p=state.plots[i]; if(!p)return;
+ if(Date.now()<p.readyAt){toast("Ещё растёт 🌱");return}
+ let c=crops[p.type];state.coins+=c.sell;state.harvest++;state.plots[i]=null;
+ render();broadcast({type:"state",state});
+ log(`Собрано: ${c.icon} +${c.sell}🪙`);
+}
+setInterval(()=>{render()},500);
+
+function broadcast(msg){
+ if(host){for(const id in state.players){if(state.players[id].conn)try{state.players[id].conn.send(msg)}catch(e){}}}
+ else if(conn&&conn.open)conn.send(msg);
+}
+function makeRoom(){
+ myName=$("name").value.trim()||"Фермер";host=true;
+ peer=new Peer();
+ peer.on("open",id=>{
+   myId=id;roomId=id.slice(-6).toUpperCase();
+   $("roomBox").innerHTML=`Код комнаты: <div class="room">${roomId}</div>Отправь код другу.`;
+   $("lobby").classList.add("hidden");log("Комната создана. Ждём игрока…");
+   peer.on("connection",c=>{
+     c.on("open",()=>{let pid=c.peer;state.players[pid]={name:"Друг",conn:c};c.send({type:"state",state});c.on("data",m=>handle(m,pid));render();log("Игрок подключился 👥")});
+     c.on("close",()=>{delete state.players[c.peer];render();log("Игрок вышел.")});
+   });
+ });
+ peer.on("error",e=>toast("Ошибка соединения"));
+}
+function joinRoom(){
+ myName=$("name").value.trim()||"Фермер";let code=$("joinCode").value.trim();
+ if(!code){toast("Введи код комнаты");return}
+ peer=new Peer();
+ peer.on("open",id=>{
+   myId=id;conn=peer.connect(code,{reliable:true});
+   conn.on("open",()=>{conn.send({type:"hello",name:myName});$("lobby").classList.add("hidden");$("roomBox").textContent="Ты в комнате.";log("Подключено к комнате 👥")});
+   conn.on("data",m=>handle(m));
+   conn.on("close",()=>{toast("Хост отключился");$("lobby").classList.remove("hidden")});
+ });
+ peer.on("error",()=>toast("Не удалось подключиться"));
+}
+function handle(m,pid){
+ if(m.type==="hello"&&host){if(state.players[pid])state.players[pid].name=m.name;broadcast({type:"state",state});}
+ if(m.type==="state"){state=m.state;render();}
+}
+$("create").onclick=makeRoom;$("join").onclick=joinRoom;
+$("leave").onclick=()=>location.reload();
+renderSeeds();render();
+</script>
+</body>
+</html>
